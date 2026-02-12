@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreeBSD 11 · Escritorio Beastie</title>
+  <!-- Font Awesome 6 (gratuito) para iconos BSD y de sistema -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    /* ===== RESET Y VARIABLES ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+    }
+
+    body {
+      background-color: #0a0c0e;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== ESCRITORIO (FONDO FREEBSD) ===== */
+    .desktop {
+      flex: 1;
+      background: radial-gradient(circle at 20% 30%, #1e1e2f, #0b0c10);
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      padding: 20px 20px 0 20px;
+      gap: 20px;
+      /* Silueta sutil del demonio BSD */
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.08"><path fill="%23e34c26" d="M50 10L10 30v40l40 20 40-20V30L50 10zm0 10l28 14v28L50 76 22 52V34l28-14z"/><circle fill="%23ffcc00" cx="50" cy="44" r="6"/><path fill="%23fff" d="M38 38l-6-6-4 4 6 6zm24 0l6-6 4 4-6 6z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: bottom 10px right 10px;
+      background-size: 240px;
+    }
+
+    /* ===== ICONOS DEL ESCRITORIO ===== */
+    .desktop-icons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 90px;
+      cursor: default;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      transition: 0.1s;
+      padding: 8px 0;
+      border-radius: 8px;
+    }
+    .desktop-icons:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(4px);
+    }
+    .desktop-icons i {
+      font-size: 42px;
+      margin-bottom: 6px;
+      color: #f2f2f2;
+    }
+    .desktop-icons span {
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+    }
+    /* Aplicaciones específicas con color BSD */
+    .fa-freebsd { color: #e34c26 !important; }  /* Rojo Beastie */
+    .fa-terminal { color: #c0c0c0; }
+    .fa-folder-open { color: #ffb347; }
+    .fa-trash { color: #a5a5a5; }
+
+    /* ===== VENTANA DE APLICACIÓN (TERMINAL) ===== */
+    .window {
+      position: absolute;
+      top: 50px;
+      left: 280px;
+      width: 580px;
+      background: rgba(32, 34, 37, 0.95);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 18px 36px rgba(0,0,0,0.5);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      resize: none;
+    }
+    .window-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(20, 22, 25, 0.8);
+      border-bottom: 1px solid #3a3f44;
+    }
+    .window-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .window-controls {
+      display: flex;
+      gap: 14px;
+    }
+    .window-controls i {
+      color: #b0b6bc;
+      transition: 0.2s;
+    }
+    .window-controls i:hover {
+      color: white;
+    }
+    .window-content {
+      padding: 20px;
+      background: #0c0f12;
+      font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .beastie-ascii {
+      color: #e34c26;
+      font-weight: bold;
+      white-space: pre;
+      margin-bottom: 16px;
+    }
+    .prompt {
+      color: #9cdcfe;
+    }
+    .command {
+      color: #d4d4d4;
+    }
+    /* Ventana del gestor de archivos (más pequeña, superpuesta) */
+    .window-files {
+      position: absolute;
+      top: 240px;
+      left: 120px;
+      width: 460px;
+      background: rgba(36, 38, 42, 0.96);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 18px 36px rgba(0,0,0,0.5);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      z-index: 2;
+    }
+    .files-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding: 20px;
+    }
+    .files-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    /* ===== BARRA DE TAREAS (ESTILO WIN11 MODIFICADO) ===== */
+    .taskbar {
+      background: rgba(18, 20, 22, 0.82);
+      backdrop-filter: blur(18px);
+      height: 60px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(227, 76, 38, 0.4); /* Línea roja BSD */
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+      color: white;
+      position: relative;
+      z-index: 100;
+    }
+    /* Grupo izquierdo: inicio + búsqueda */
+    .taskbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .start-button {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 26px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+      cursor: pointer;
+    }
+    .start-button:hover {
+      background: rgba(227, 76, 38, 0.25);
+    }
+    .start-button i {
+      color: #e34c26; /* Beastie red */
+    }
+    .search-box {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid #3a3f44;
+      border-radius: 24px;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #aaa;
+      font-size: 14px;
+      width: 220px;
+    }
+    .search-box i {
+      color: #e34c26;
+    }
+    /* Centro: apps ancladas (estilo Win11 pero con iconos BSD) */
+    .taskbar-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      padding: 4px 8px;
+      border-radius: 40px;
+    }
+    .taskbar-app {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 22px;
+      color: #ddd;
+      transition: 0.2s;
+    }
+    .taskbar-app:hover {
+      background: rgba(227, 76, 38, 0.25);
+      color: white;
+    }
+    .taskbar-app.active {
+      background: rgba(227, 76, 38, 0.35);
+      border-bottom: 2px solid #e34c26;
+    }
+    /* Bandeja derecha: reloj, notificaciones, etc */
+    .taskbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(0,0,0,0.2);
+      padding: 8px 16px;
+      border-radius: 32px;
+    }
+    .system-tray i {
+      margin: 0 4px;
+      color: #ccc;
+    }
+    .clock {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    /* ===== MENÚ INICIO (ESTILO FREEBSD) ===== */
+    .start-menu {
+      position: absolute;
+      bottom: 70px;
+      left: 20px;
+      width: 540px;
+      background: rgba(22, 24, 28, 0.95);
+      backdrop-filter: blur(30px);
+      border-radius: 16px;
+      border: 1px solid #444;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      color: white;
+      z-index: 200;
+    }
+    .start-menu.show {
+      display: grid;
+    }
+    .pinned-apps h4, .recommended h4 {
+      font-size: 14px;
+      color: #ccc;
+      margin-bottom: 16px;
+      font-weight: 500;
+    }
+    .pinned-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .pinned-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(255,255,255,0.04);
+      padding: 12px 0;
+      border-radius: 12px;
+    }
+    .pinned-item i {
+      font-size: 26px;
+      margin-bottom: 6px;
+      color: #e34c26;
+    }
+    .user-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      border-top: 1px solid #3a3f44;
+      padding-top: 16px;
+      grid-column: span 2;
+    }
+
+    /* ===== UTILIDADES ===== */
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- ESCRITORIO PRINCIPAL -->
+  <div class="desktop">
+    <!-- ICONOS DEL ESCRITORIO -->
+    <div class="desktop-icons">
+      <i class="fas fa-terminal"></i>
+      <span>Terminal</span>
+    </div>
+    <div class="desktop-icons">
+      <i class="fas fa-folder-open"></i>
+      <span>Archivos</span>
+    </div>
+    <div class="desktop-icons">
+      <i class="fas fa-boxes-packing"></i>
+      <span>Paquetes</span>
+    </div>
+    <div class="desktop-icons">
+      <i class="fas fa-cog"></i>
+      <span>Ajustes</span>
+    </div>
+    <div class="desktop-icons">
+      <i class="fas fa-trash"></i>
+      <span>Papelera</span>
+    </div>
+    <div class="desktop-icons">
+      <i class="fab fa-freebsd"></i>
+      <span>Beastie</span>
+    </div>
+
+    <!-- VENTANA DE TERMINAL (FreeBSD) -->
+    <div class="window">
+      <div class="window-header">
+        <div class="window-title">
+          <i class="fas fa-terminal" style="color:#e34c26;"></i>
+          <span>Terminal · beastie@freebsd: ~</span>
+        </div>
+        <div class="window-controls">
+          <i class="fas fa-minus"></i>
+          <i class="fas fa-square"></i>
+          <i class="fas fa-xmark"></i>
+        </div>
+      </div>
+      <div class="window-content">
+        <div class="beastie-ascii">
+          ⠀⠀⠀⠀⠀⢀⣤⣶⣶⣿⣿⣿⣿⣶⣦⣄⠀⠀⠀⠀⠀⠀
+          ⠀⠀⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀⠀
+          ⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀⠀
+          ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄
+          ⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃
+          ⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀
+          ⠀⠀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀
+          ⠀⠀⠀⠀⠀⠉⠛⠿⣿⣿⣿⣿⡿⠿⠛⠉⠀⠀⠀⠀⠀
+        </div>
+        <div style="display: flex; gap: 10px; align-items: baseline;">
+          <span style="color:#e34c26;">beastie@freebsd</span><span style="color:#6a9955;">:</span><span style="color:#569cd6;">~</span><span style="color:#6a9955;">$</span>
+          <span style="color:#d4d4d4;">uname -a</span>
+        </div>
+        <div style="color: #9cdcfe; margin-top: 8px;">
+          FreeBSD beastie 14.0-RELEASE FreeBSD 14.0-RELEASE #0 releng/14.0
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <span class="prompt">beastie@freebsd:~$</span>
+          <span class="command">█</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VENTANA DE GESTOR DE ARCHIVOS (ESTILO FREEBSD) -->
+    <div class="window-files">
+      <div class="window-header">
+        <div class="window-title">
+          <i class="fas fa-folder-open" style="color:#ffb347;"></i>
+          <span>Archivos · /usr/home/beastie</span>
+        </div>
+        <div class="window-controls">
+          <i class="fas fa-minus"></i>
+          <i class="fas fa-square"></i>
+          <i class="fas fa-xmark"></i>
+        </div>
+      </div>
+      <div class="files-grid">
+        <div class="files-item"><i class="fas fa-folder" style="color:#ffb347; font-size: 32px;"></i><span>Documentos</span></div>
+        <div class="files-item"><i class="fas fa-folder" style="color:#ffb347; font-size: 32px;"></i><span>Descargas</span></div>
+        <div class="files-item"><i class="fas fa-folder" style="color:#ffb347; font-size: 32px;"></i><span>.config</span></div>
+        <div class="files-item"><i class="fas fa-file-code" style="color:#9cdcfe; font-size: 32px;"></i><span>.cshrc</span></div>
+        <div class="files-item"><i class="fas fa-file-alt" style="color:#d4d4d4; font-size: 32px;"></i><span>license</span></div>
+        <div class="files-item"><i class="fas fa-file-archive" style="color:#c586c0; font-size: 32px;"></i><span>src.txz</span></div>
+        <div class="files-item"><i class="fas fa-image" style="color:#ce9178; font-size: 32px;"></i><span>beastie.png</span></div>
+        <div class="files-item"><i class="fas fa-terminal" style="color:#e34c26; font-size: 32px;"></i><span>scripts</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BARRA DE TAREAS (FreeBSD 11 EDITION) -->
+  <div class="taskbar">
+    <div class="taskbar-left">
+      <!-- Botón inicio con logo de FreeBSD -->
+      <button class="start-button" id="startButton">
+        <i class="fab fa-freebsd"></i>
+        <span style="font-size: 15px; font-weight: 600;">Inicio</span>
+      </button>
+      <!-- Buscador estilo Win11 pero con acento BSD -->
+      <div class="search-box">
+        <i class="fas fa-magnifying-glass"></i>
+        <span>Buscar aplicaciones, ports...</span>
+      </div>
+    </div>
+
+    <div class="taskbar-center">
+      <div class="taskbar-app active"><i class="fas fa-terminal"></i></div>
+      <div class="taskbar-app"><i class="fas fa-folder-open"></i></div>
+      <div class="taskbar-app"><i class="fas fa-globe"></i></div>
+      <div class="taskbar-app"><i class="fas fa-code"></i></div>
+      <div class="taskbar-app"><i class="fas fa-warehouse"></i></div>
+    </div>
+
+    <div class="taskbar-right">
+      <div class="system-tray">
+        <i class="fas fa-wifi"></i>
+        <i class="fas fa-volume-up"></i>
+        <i class="fas fa-battery-full"></i>
+      </div>
+      <div class="clock" id="liveClock">
+        <!-- El reloj se actualiza con JS -->
+      </div>
+      <div style="border-left: 1px solid #555; height: 30px;"></div>
+      <i class="fas fa-bell"></i>
+    </div>
+  </div>
+
+  <!-- MENÚ INICIO (FREEBSD PERSONALIZADO) -->
+  <div class="start-menu" id="startMenu">
+    <div class="pinned-apps">
+      <h4>Ancladas · FreeBSD</h4>
+      <div class="pinned-grid">
+        <div class="pinned-item"><i class="fas fa-terminal"></i><span>Terminal</span></div>
+        <div class="pinned-item"><i class="fas fa-folder-open"></i><span>Archivos</span></div>
+        <div class="pinned-item"><i class="fas fa-gear"></i><span>Ajustes</span></div>
+        <div class="pinned-item"><i class="fas fa-bolt"></i><span>Synth</span></div>
+        <div class="pinned-item"><i class="fas fa-shield"></i><span>Firewall</span></div>
+        <div class="pinned-item"><i class="fas fa-dragon"></i><span>ZFS</span></div>
+      </div>
+    </div>
+    <div class="recommended">
+      <h4>Recomendado</h4>
+      <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px;">
+        <i class="fas fa-box" style="color:#e34c26;"></i> pkg update && pkg upgrade
+      </div>
+      <div style="background: rgba(255,255,255,0.05); margin-top: 10px; padding: 12px; border-radius: 12px;">
+        <i class="fas fa-book"></i> Handbook
+      </div>
+    </div>
+    <div class="user-area">
+      <i class="fas fa-user-circle" style="font-size: 32px; color: #e34c26;"></i>
+      <span style="font-weight: 600;">beastie@freebsd</span>
+      <span style="margin-left: auto; display: flex; gap: 16px;">
+        <i class="fas fa-power-off" style="color: #ff6b6b;"></i>
+        <i class="fas fa-lock"></i>
+      </span>
+    </div>
+  </div>
+
+  <script>
+    // ===== RELOJ DINÁMICO (FreeBSD time) =====
+    function updateClock() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const dateString = now.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+      document.getElementById('liveClock').innerHTML = `${timeString}<br><span style="font-size: 11px; color: #aaa;">${dateString}</span>`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ===== MENÚ INICIO TOGGLE (click en botón inicio) =====
+    const startBtn = document.getElementById('startButton');
+    const startMenu = document.getElementById('startMenu');
+
+    startBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startMenu.classList.toggle('show');
+    });
+
+    // Cerrar menú al hacer clic fuera
+    document.addEventListener('click', (event) => {
+      if (!startBtn.contains(event.target) && !startMenu.contains(event.target)) {
+        startMenu.classList.remove('show');
+      }
+    });
+
+    // Evitar que se cierre si se hace clic dentro del menú
+    startMenu.addEventListener('click', (e) => e.stopPropagation());
+
+    // Pequeña interacción: iconos del escritorio (simulación)
+    const desktopIcons = document.querySelectorAll('.desktop-icons');
+    desktopIcons.forEach(icon => {
+      icon.addEventListener('dblclick', () => {
+        alert('FreeBSD · ' + icon.innerText.trim());
+      });
+    });
+  </script>
+
+  <!-- Marca de agua exclusiva FreeBSD -->
+  <div style="position: absolute; bottom: 70px; right: 20px; color: rgba(255,255,255,0.2); font-size: 12px; font-weight: 300; z-index: 999;">
+    FreeBSD 14.0 · Entorno Beastie
+  </div>
+</body>
+</html>
